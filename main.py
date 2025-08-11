@@ -4,6 +4,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
 
 def preprocess_data(df, target_column, test_size=0.2, random_state=42):
 
@@ -27,3 +28,20 @@ def preprocess_data(df, target_column, test_size=0.2, random_state=42):
     )
 
     return X_train, X_test, y_train, y_test, scaler
+
+def using_diff_models(X_train, X_test, y_train, y_test, scaler):
+
+  models = {
+    "Logistic Regression": LogisticRegression(),
+    "Random Forest": RandomForestClassifier(),
+    "SVM": SVC()
+  }
+
+  results = {}
+  for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    results[name] = acc
+
+  print(results)
