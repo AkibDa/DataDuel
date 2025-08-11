@@ -45,3 +45,12 @@ def using_diff_models(X_train, X_test, y_train, y_test, scaler):
     results[name] = acc
 
   print(results)
+
+def main():
+
+  print("Welcome to DataDual:\n")
+  print("Your one stop for ")
+
+
+if __name__ == "__main__":
+  main()
