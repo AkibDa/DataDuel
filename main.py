@@ -1,151 +1,113 @@
 import streamlit as st
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import accuracy_score, r2_score
 
-# Set page config
-st.set_page_config(page_title="Model Comparison App", layout="wide")
+# Page config
+st.set_page_config(page_title="DataDuel", layout="wide")
 
-# Custom CSS for better appearance
+# Custom CSS for theming
 st.markdown("""
-<style>
-    .reportview-container {
-        background: #f0f2f6;
+    <style>
+    .main {
+        background-color: #f7f9fc;
     }
-    .sidebar .sidebar-content {
-        background: #ffffff;
-    }
-    h1 {
-        color: #2a3f5f;
-    }
-    .st-bq {
+    .title-bar {
+        background-color: #1f4e79;
+        padding: 15px;
         border-radius: 10px;
+        color: white;
+        text-align: center;
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 20px;
     }
-</style>
+    .best-score {
+        background-color: #d4edda;
+        color: #155724;
+        font-weight: bold;
+        border-radius: 5px;
+        padding: 2px 5px;
+    }
+    .footer {
+        margin-top: 40px;
+        text-align: center;
+        color: #777;
+        font-size: 14px;
+    }
+    </style>
 """, unsafe_allow_html=True)
 
+# Title bar
+st.markdown('<div class="title-bar">⚔️ DataDuel - Model Performance Comparison</div>', unsafe_allow_html=True)
 
-def preprocess_data(df, target_column, test_size=0.2, random_state=42):
-  """Preprocess the data for modeling"""
-  X = df.drop(columns=[target_column])
-  y = df[target_column]
+# Sidebar
+st.sidebar.header("📂 Upload & Settings")
+uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
 
-  num_cols = X.select_dtypes(include=['int64', 'float64']).columns
-  X[num_cols] = X[num_cols].fillna(X[num_cols].mean())
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    st.subheader("📊 Preview of Dataset")
+    st.dataframe(df.head())
 
-  cat_cols = X.select_dtypes(include=['object', 'category']).columns
-  for col in cat_cols:
-    X[col] = X[col].fillna(X[col].mode()[0])
+    target = st.sidebar.selectbox("🎯 Select Target Column", df.columns)
+    exclude_cols = st.sidebar.multiselect("🚫 Columns to Exclude", [col for col in df.columns if col != target])
 
-  X = pd.get_dummies(X, drop_first=True)
+    if st.sidebar.button("⚡ Compare Models"):
+        try:
+            X = df.drop(columns=[target] + exclude_cols)
+            y = df[target]
 
-  scaler = StandardScaler()
-  X[num_cols] = scaler.fit_transform(X[num_cols])
+            # Encode categorical variables
+            for col in X.select_dtypes(include=['object']).columns:
+                X[col] = LabelEncoder().fit_transform(X[col])
+            if y.dtype == 'object':
+                y = LabelEncoder().fit_transform(y)
 
-  X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=test_size, random_state=random_state
-  )
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-  return X_train, X_test, y_train, y_test, scaler
+            # Detect task type
+            is_classification = len(pd.Series(y).unique()) <= 20 and y.dtype != 'float64'
 
+            results = []
 
-def compare_models(X_train, X_test, y_train, y_test):
-  """Compare multiple classification models"""
-  models = {
-    "Logistic Regression": LogisticRegression(),
-    "Random Forest": RandomForestClassifier(),
-    "SVM": SVC()
-  }
+            if is_classification:
+                models = {
+                    "Logistic Regression": LogisticRegression(max_iter=1000),
+                    "Random Forest Classifier": RandomForestClassifier()
+                }
+                for name, model in models.items():
+                    model.fit(X_train, y_train)
+                    y_pred = model.predict(X_test)
+                    acc = accuracy_score(y_test, y_pred)
+                    results.append({"Model": name, "Score": acc})
+            else:
+                models = {
+                    "Linear Regression": LinearRegression(),
+                    "Random Forest Regressor": RandomForestRegressor()
+                }
+                for name, model in models.items():
+                    model.fit(X_train, y_train)
+                    y_pred = model.predict(X_test)
+                    score = r2_score(y_test, y_pred)
+                    results.append({"Model": name, "Score": score})
 
-  results = {}
-  for name, model in models.items():
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    acc = accuracy_score(y_test, y_pred)
-    results[name] = acc * 100  # Convert to percentage
+            results_df = pd.DataFrame(results)
+            best_score = results_df["Score"].max()
 
-  return results
+            # Highlight best score
+            def highlight_best(val):
+                return 'background-color: #d4edda; color: #155724; font-weight: bold;' if val == best_score else ''
 
+            st.subheader("🏆 Model Comparison Results")
+            st.write("Here’s how the models performed on your dataset:")
+            st.dataframe(results_df.style.applymap(highlight_best, subset=['Score']))
 
-def main():
-  """Main app function"""
-  st.title("🚀 Model Comparison App")
-  st.markdown("""
-    ### Your one-stop solution for comparing machine learning models
-    Upload your dataset and we'll compare multiple classification models for you!
-    """)
+        except Exception as e:
+            st.error(f"Error: {e}")
 
-  # File upload section
-  uploaded_file = st.file_uploader("Upload your dataset (CSV)", type="csv")
-
-  if uploaded_file is not None:
-    try:
-      df = pd.read_csv(uploaded_file)
-
-      # Show dataset preview
-      st.subheader("Dataset Preview")
-      st.write(df.head())
-
-      # Get target column
-      target_column = st.selectbox(
-        "Select the target column",
-        options=df.columns,
-        index=len(df.columns) - 1
-      )
-
-      # Additional options
-      st.sidebar.header("Advanced Options")
-      test_size = st.sidebar.slider(
-        "Test set size",
-        min_value=0.1,
-        max_value=0.5,
-        value=0.2,
-        step=0.05
-      )
-      random_state = st.sidebar.number_input(
-        "Random state",
-        min_value=0,
-        max_value=100,
-        value=42
-      )
-
-      if st.button("Compare Models"):
-        with st.spinner("Preprocessing data and training models..."):
-          # Preprocess data
-          X_train, X_test, y_train, y_test, _ = preprocess_data(
-            df, target_column, test_size, random_state
-          )
-
-          # Compare models
-          results = compare_models(X_train, X_test, y_train, y_test)
-
-          # Display results
-          st.subheader("Model Comparison Results")
-
-          # Create a nice results table
-          results_df = pd.DataFrame.from_dict(
-            results,
-            orient='index',
-            columns=['Accuracy (%)']
-          ).sort_values('Accuracy (%)', ascending=False)
-
-          st.dataframe(results_df.style.format({'Accuracy (%)': '{:.2f}%'}))
-
-          # Visualize results
-          st.subheader("Accuracy Comparison")
-          st.bar_chart(results_df)
-
-          # Show best model
-          best_model = max(results, key=results.get)
-          st.success(f"🎉 Best performing model: {best_model} with {results[best_model]:.2f}% accuracy")
-
-    except Exception as e:
-      st.error(f"An error occurred: {str(e)}")
-
-
-if __name__ == "__main__":
-  main()
+# Footer
+st.markdown('<div class="footer">Powered by DataDuel</div>', unsafe_allow_html=True)
