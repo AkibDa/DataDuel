@@ -49,7 +49,15 @@ def using_diff_models(X_train, X_test, y_train, y_test, scaler):
 def main():
 
   print("Welcome to DataDual:\n")
-  print("Your one stop for ")
+  print("Your one stop for choosing a machine learning model:\n")
+
+  problem_statement = input("What would you like to solve?\n")
+  dataset = input("Give ur dataset\n")
+  target_column = input("What is the target column?\n")
+
+  X_train, X_test, y_train, y_test, scaler = preprocess_data(dataset, target_column)
+  using_diff_models(X_train, X_test, y_train, y_test, scaler)
+
 
 
 if __name__ == "__main__":
