@@ -27,11 +27,7 @@
 git clone https://github.com/yourusername/DataDuel.git
 cd DataDuel
 ```
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-3. Run the app:
+2. Run the app:
 ```bash
 streamlit run main.py
 ```
